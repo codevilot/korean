@@ -18,7 +18,12 @@ After GitHub Pages is enabled for this repository and the release workflow has p
 echo "deb [trusted=yes] https://codevilot.github.io/korean stable main" | sudo tee /etc/apt/sources.list.d/korean.list
 sudo apt update
 sudo apt install korean
-korean setup
+```
+
+On the next GNOME login, the package automatically registers Korean as an IBus source and sets Caps Lock as the input-source switch key. To apply it immediately in the current session, run:
+
+```bash
+korean start
 ```
 
 The repository is currently unsigned, so the command above uses `trusted=yes`. For a production repository, sign `dists/stable/Release` and replace `trusted=yes` with a `signed-by=` keyring entry.
@@ -32,7 +37,7 @@ sudo apt update
 sudo apt install -y build-essential cargo rustc pkg-config libibus-1.0-dev libglib2.0-dev libevdev-dev libudev-dev dpkg-dev apt-utils
 ./scripts/package-deb.sh
 sudo apt install ./dist/korean_0.1.0_amd64.deb
-korean setup
+korean start
 ```
 
 ## Build the APT repository
@@ -47,7 +52,8 @@ The generated repository layout is written to `public/` and is suitable for GitH
 ## Use
 
 ```bash
-korean setup
+korean start
+korean stop
 korean status
 korean doctor
 korean simulate gksrmf
@@ -81,7 +87,7 @@ For a rebuild/restart loop:
 ./scripts/dev-watch.sh
 ```
 
-Select `Korean Dev` from GNOME Settings > Keyboard > Input Sources or from the top-bar input source menu.
+The script selects `Korean Dev` and sets Caps Lock as the GNOME input-source switch key. If the current session does not pick it up, select `Korean Dev` from GNOME Settings > Keyboard > Input Sources or from the top-bar input source menu.
 
 ## Design
 
@@ -89,6 +95,7 @@ Select `Korean Dev` from GNOME Settings > Keyboard > Input Sources or from the t
 - `korean-state` owns input mode transitions.
 - `korean-ibus` is the IBus engine and handles Hangul preedit/commit behavior.
 - `korean` is the CLI installed at `/usr/bin/korean`.
+- GNOME Caps Lock input-source switching is configured by `korean start`.
 - `korean-capsd` is optional infrastructure for future Caps Lock tap/hold behavior.
 
 ## Notes

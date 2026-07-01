@@ -43,10 +43,13 @@ select_gnome_source() {
   for part in "${parts[@]}"; do
     if [[ "$part" == *"$engine_name"* ]]; then
       gsettings set "$schema" current "$index" || return 0
-      return 0
+      break
     fi
     index=$((index + 1))
   done
+
+  gsettings set org.gnome.desktop.wm.keybindings switch-input-source "['Caps_Lock']" || return 0
+  gsettings set org.gnome.desktop.wm.keybindings switch-input-source-backward "[]" || return 0
 }
 
 cargo build -p korean-cli -p korean-ibus

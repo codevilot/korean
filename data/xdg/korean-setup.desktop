@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Korean Input Method Setup
+Comment=Register Korean input method and Caps Lock switching
+Exec=/usr/bin/korean start --quiet
+OnlyShowIn=GNOME;Unity;
+NoDisplay=true
+X-GNOME-Autostart-enabled=true

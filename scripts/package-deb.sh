@@ -20,6 +20,7 @@ install -Dm755 target/release/korean "$pkg_root/usr/bin/korean"
 install -Dm755 target/release/korean-ibus "$pkg_root/usr/lib/korean/korean-ibus"
 install -Dm755 target/release/korean-capsd "$pkg_root/usr/lib/korean/korean-capsd"
 install -Dm644 data/ibus/korean.xml "$pkg_root/usr/share/ibus/component/korean.xml"
+install -Dm644 data/xdg/korean-setup.desktop "$pkg_root/etc/xdg/autostart/korean-setup.desktop"
 install -Dm644 data/systemd/korean-capsd.service "$pkg_root/usr/lib/systemd/user/korean-capsd.service"
 install -Dm644 data/udev/90-korean.rules "$pkg_root/etc/udev/rules.d/90-korean.rules"
 install -Dm644 README.md "$pkg_root/usr/share/doc/korean/README.md"
@@ -36,7 +37,7 @@ Depends: ibus, libibus-1.0-5, libglib2.0-0, fonts-noto-cjk | fonts-nanum
 Recommends: gsettings-desktop-schemas
 Description: macOS-like Korean input method for Linux
  Korean is a small IBus input method for two-beolsik Hangul composition.
- It provides a Korean CLI, an IBus engine, and optional Caps Lock support.
+ It provides a Korean CLI, an IBus engine, and Caps Lock input-source setup.
 CONTROL
 
 cat >"$pkg_root/DEBIAN/postinst" <<'POSTINST'

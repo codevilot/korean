@@ -6,7 +6,9 @@ use korean_core::{HangulComposer, InputResult};
 fn main() -> ExitCode {
     let mut args = env::args().skip(1);
     match args.next().as_deref() {
-        Some("setup") => setup(),
+        Some("start") => start(args.collect()),
+        Some("stop") => stop(),
+        Some("setup") => setup(args.collect()),
         Some("status") => status(),
         Some("doctor") => doctor(),
         Some("simulate") => {
@@ -24,7 +26,9 @@ fn main() -> ExitCode {
 fn print_usage() {
     eprintln!(
         "Usage:
-  korean setup
+  korean start [--quiet]
+  korean stop
+  korean setup [--caps-switch] [--quiet]
   korean status
   korean doctor
   korean simulate <keys>
@@ -32,7 +36,55 @@ fn print_usage() {
     );
 }
 
-fn setup() -> ExitCode {
+fn start(args: Vec<String>) -> ExitCode {
+    let mut setup_args = vec!["--caps-switch".to_string()];
+    setup_args.extend(args);
+    setup(setup_args)
+}
+
+fn stop() -> ExitCode {
+    let engine = engine_name();
+    if !command_exists("gsettings") {
+        eprintln!("gsettings not found. Remove Korean manually in GNOME Settings.");
+        return ExitCode::from(1);
+    }
+
+    let current = gsettings("get", "org.gnome.desktop.input-sources", "sources")
+        .unwrap_or_else(|| "[]".to_string());
+    let updated = remove_ibus_source(&current, &engine);
+    if updated != current && !run_gsettings_set("sources", &updated) {
+        eprintln!("Could not remove {engine} from GNOME input sources automatically.");
+        return ExitCode::from(1);
+    }
+
+    if updated != "[]" {
+        let _ = run_gsettings_set("current", "0");
+    }
+
+    if !restore_default_switch_keys() {
+        eprintln!("Could not restore GNOME input-source switch keys automatically.");
+        return ExitCode::from(1);
+    }
+
+    println!("Korean stopped.");
+    ExitCode::SUCCESS
+}
+
+#[derive(Default)]
+struct SetupOptions {
+    caps_switch: bool,
+    quiet: bool,
+}
+
+fn setup(args: Vec<String>) -> ExitCode {
+    let options = match parse_setup_options(args) {
+        Ok(options) => options,
+        Err(message) => {
+            eprintln!("{message}");
+            print_usage();
+            return ExitCode::from(2);
+        }
+    };
     let engine = engine_name();
     if !command_exists("ibus") {
         eprintln!("ibus command not found. Install the korean package dependencies and try again.");
@@ -71,13 +123,36 @@ fn setup() -> ExitCode {
             eprintln!("Add ('ibus', '{engine}') from Settings > Keyboard > Input Sources.");
             return ExitCode::from(1);
         }
+
+        if options.caps_switch && !configure_caps_switch() {
+            eprintln!("Could not set Caps Lock as the GNOME input-source switch key.");
+            eprintln!("Set Settings > Keyboard > Keyboard Shortcuts > Typing > Switch to next input source to Caps Lock.");
+            return ExitCode::from(1);
+        }
     } else {
         eprintln!("gsettings not found. Add Korean manually in GNOME Settings.");
     }
 
-    println!("Korean setup completed.");
-    println!("Select '{engine}' in the GNOME input source menu if it is not active yet.");
+    if !options.quiet {
+        println!("Korean setup completed.");
+        if options.caps_switch {
+            println!("Caps Lock is configured as the GNOME input source switch key.");
+        }
+        println!("Select '{engine}' in the GNOME input source menu if it is not active yet.");
+    }
     ExitCode::SUCCESS
+}
+
+fn parse_setup_options(args: Vec<String>) -> Result<SetupOptions, String> {
+    let mut options = SetupOptions::default();
+    for arg in args {
+        match arg.as_str() {
+            "--caps-switch" => options.caps_switch = true,
+            "--quiet" => options.quiet = true,
+            _ => return Err(format!("Unknown setup option: {arg}")),
+        }
+    }
+    Ok(options)
 }
 
 fn status() -> ExitCode {
@@ -251,14 +326,42 @@ fn gsettings(action: &str, schema: &str, key: &str) -> Option<String> {
 }
 
 fn run_gsettings_set(key: &str, value: &str) -> bool {
+    run_gsettings_set_schema("org.gnome.desktop.input-sources", key, value)
+}
+
+fn run_gsettings_set_schema(schema: &str, key: &str, value: &str) -> bool {
     Command::new("gsettings")
         .arg("set")
-        .arg("org.gnome.desktop.input-sources")
+        .arg(schema)
         .arg(key)
         .arg(value)
         .status()
         .map(|status| status.success())
         .unwrap_or(false)
+}
+
+fn configure_caps_switch() -> bool {
+    run_gsettings_set_schema(
+        "org.gnome.desktop.wm.keybindings",
+        "switch-input-source",
+        "['Caps_Lock']",
+    ) && run_gsettings_set_schema(
+        "org.gnome.desktop.wm.keybindings",
+        "switch-input-source-backward",
+        "[]",
+    )
+}
+
+fn restore_default_switch_keys() -> bool {
+    run_gsettings_set_schema(
+        "org.gnome.desktop.wm.keybindings",
+        "switch-input-source",
+        "['<Super>space']",
+    ) && run_gsettings_set_schema(
+        "org.gnome.desktop.wm.keybindings",
+        "switch-input-source-backward",
+        "['<Shift><Super>space']",
+    )
 }
 
 fn append_ibus_source(current: &str, engine: &str) -> String {
@@ -273,28 +376,58 @@ fn append_ibus_source(current: &str, engine: &str) -> String {
     }
 }
 
+fn remove_ibus_source(current: &str, engine: &str) -> String {
+    let needle = format!("('ibus', '{engine}')");
+    let items = source_items(current)
+        .into_iter()
+        .filter(|item| !item.contains(&needle))
+        .collect::<Vec<_>>();
+    if items.is_empty() {
+        "[]".to_string()
+    } else {
+        format!("[{}]", items.join(", "))
+    }
+}
+
 fn source_index(current: &str, engine: &str) -> Option<usize> {
     let needle = format!("('ibus', '{engine}')");
-    let mut index = 0;
-    for part in current.split("),") {
-        let normalized = if part.trim_end().ends_with(')') {
-            part.trim().to_string()
-        } else {
-            format!("{})", part.trim())
-        };
-        if normalized.contains(&needle) {
+    for (index, item) in source_items(current).iter().enumerate() {
+        if item.contains(&needle) {
             return Some(index);
-        }
-        if normalized.contains("('") {
-            index += 1;
         }
     }
     None
 }
 
+fn source_items(current: &str) -> Vec<String> {
+    let trimmed = current.trim();
+    let inner = trimmed
+        .strip_prefix('[')
+        .and_then(|value| value.strip_suffix(']'))
+        .unwrap_or(trimmed)
+        .trim();
+    if inner.is_empty() {
+        return Vec::new();
+    }
+
+    inner
+        .split("),")
+        .filter_map(|part| {
+            let part = part.trim();
+            if part.is_empty() {
+                None
+            } else if part.ends_with(')') {
+                Some(part.to_string())
+            } else {
+                Some(format!("{part})"))
+            }
+        })
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{append_ibus_source, source_index};
+    use super::{append_ibus_source, parse_setup_options, remove_ibus_source, source_index};
 
     #[test]
     fn appends_korean_to_empty_sources() {
@@ -311,5 +444,31 @@ mod tests {
     fn finds_korean_when_it_is_first() {
         let sources = "[('ibus', 'korean'), ('xkb', 'us')]";
         assert_eq!(source_index(sources, "korean"), Some(0));
+    }
+
+    #[test]
+    fn removes_korean_source() {
+        let sources = "[('xkb', 'us'), ('ibus', 'korean'), ('ibus', 'hangul')]";
+        assert_eq!(
+            remove_ibus_source(sources, "korean"),
+            "[('xkb', 'us'), ('ibus', 'hangul')]"
+        );
+    }
+
+    #[test]
+    fn removes_korean_when_it_is_only_source() {
+        assert_eq!(remove_ibus_source("[('ibus', 'korean')]", "korean"), "[]");
+    }
+
+    #[test]
+    fn parses_setup_caps_switch_option() {
+        let options = parse_setup_options(vec!["--caps-switch".into(), "--quiet".into()]).unwrap();
+        assert!(options.caps_switch);
+        assert!(options.quiet);
+    }
+
+    #[test]
+    fn rejects_unknown_setup_option() {
+        assert!(parse_setup_options(vec!["--unknown".into()]).is_err());
     }
 }
