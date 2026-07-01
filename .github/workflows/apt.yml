@@ -1,0 +1,64 @@
+name: Build APT package
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            cargo \
+            rustc \
+            pkg-config \
+            libibus-1.0-dev \
+            libglib2.0-dev \
+            libevdev-dev \
+            libudev-dev \
+            dpkg-dev \
+            apt-utils
+      - name: Test
+        run: cargo test --workspace
+      - name: Build deb
+        run: ./scripts/package-deb.sh
+      - name: Build apt repository
+        run: ./scripts/build-apt-repo.sh dist public
+      - name: Upload deb artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: korean-deb
+          path: dist/*.deb
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: public
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

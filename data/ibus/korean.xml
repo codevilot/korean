@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<component>
+  <name>org.freedesktop.IBus.Korean</name>
+  <description>Korean Input Method</description>
+  <exec>/usr/lib/korean/korean-ibus</exec>
+  <version>0.1.0</version>
+  <author>BK</author>
+  <license>MIT</license>
+  <textdomain>korean</textdomain>
+  <engines>
+    <engine>
+      <name>korean</name>
+      <language>ko</language>
+      <license>MIT</license>
+      <author>BK</author>
+      <layout>us</layout>
+      <longname>Korean</longname>
+      <description>macOS-like Korean input method for Linux</description>
+      <rank>99</rank>
+    </engine>
+  </engines>
+</component>

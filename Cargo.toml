@@ -1,0 +1,16 @@
+[workspace]
+members = [
+    "crates/korean-core",
+    "crates/korean-state",
+    "crates/korean-cli",
+    "crates/korean-ibus",
+    "crates/korean-capsd",
+]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+authors = ["BK"]
+

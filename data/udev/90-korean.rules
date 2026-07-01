@@ -1,0 +1,4 @@
+# Development rule for korean-capsd.
+# For production, restrict this to the exact keyboard devices you intend to read.
+KERNEL=="event*", SUBSYSTEM=="input", MODE="0660", GROUP="input"
+

@@ -1,0 +1,12 @@
+[Unit]
+Description=Korean Caps Lock tap/hold daemon
+After=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=/usr/lib/korean/korean-capsd
+Restart=on-failure
+
+[Install]
+WantedBy=default.target
+
