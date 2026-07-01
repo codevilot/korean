@@ -36,7 +36,7 @@ Build and install locally on Ubuntu/Debian:
 sudo apt update
 sudo apt install -y build-essential cargo rustc pkg-config libibus-1.0-dev libglib2.0-dev libevdev-dev libudev-dev dpkg-dev apt-utils
 ./scripts/package-deb.sh
-sudo apt install ./dist/korean_0.1.0_amd64.deb
+sudo apt install ./dist/korean_0.1.1_amd64.deb
 korean start
 ```
 

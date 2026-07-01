@@ -24,6 +24,9 @@ fn composes_basic_words() {
     assert_eq!(simulate("rhk"), "과");
     assert_eq!(simulate("rhkf"), "괄");
     assert_eq!(simulate("rkqt"), "값");
+    assert_eq!(simulate("qkq"), "밥");
+    assert_eq!(simulate("dks"), "안");
+    assert_eq!(simulate("gks"), "한");
 }
 
 #[test]

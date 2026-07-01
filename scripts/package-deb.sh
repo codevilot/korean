@@ -62,6 +62,7 @@ chmod 0755 "$pkg_root/DEBIAN/postinst" "$pkg_root/DEBIAN/postrm"
 
 mkdir -p "$out_dir"
 deb="$out_dir/korean_${version}_${arch}.deb"
+rm -f "$out_dir"/korean_*_"$arch".deb
 dpkg-deb --build --root-owner-group "$pkg_root" "$deb"
 
 echo "$deb"

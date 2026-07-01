@@ -37,7 +37,9 @@ fn print_usage() {
 }
 
 fn start(args: Vec<String>) -> ExitCode {
-    setup(args)
+    let mut setup_args = vec!["--exclusive".to_string()];
+    setup_args.extend(args);
+    setup(setup_args)
 }
 
 fn stop() -> ExitCode {
@@ -71,6 +73,7 @@ fn stop() -> ExitCode {
 #[derive(Default)]
 struct SetupOptions {
     caps_switch: bool,
+    exclusive: bool,
     quiet: bool,
 }
 
@@ -101,7 +104,15 @@ fn setup(args: Vec<String>) -> ExitCode {
     if command_exists("gsettings") {
         let mut current = gsettings("get", "org.gnome.desktop.input-sources", "sources")
             .unwrap_or_else(|| "[]".to_string());
-        if !current.contains(&engine) {
+        if options.exclusive {
+            let updated = source_list(&[ibus_source(&engine)]);
+            if current != updated && !run_gsettings_set("sources", &updated) {
+                eprintln!("Could not set GNOME input sources automatically.");
+                eprintln!("Add ('ibus', '{engine}') from Settings > Keyboard > Input Sources.");
+                return ExitCode::from(1);
+            }
+            current = updated;
+        } else if !current.contains(&engine) {
             let updated = append_ibus_source(&current, &engine);
             if !run_gsettings_set("sources", &updated) {
                 eprintln!("Could not update GNOME input sources automatically.");
@@ -160,6 +171,7 @@ fn parse_setup_options(args: Vec<String>) -> Result<SetupOptions, String> {
     for arg in args {
         match arg.as_str() {
             "--caps-switch" => options.caps_switch = true,
+            "--exclusive" => options.exclusive = true,
             "--quiet" => options.quiet = true,
             _ => return Err(format!("Unknown setup option: {arg}")),
         }
@@ -385,7 +397,7 @@ fn restore_default_switch_keys() -> bool {
 }
 
 fn append_ibus_source(current: &str, engine: &str) -> String {
-    let item = format!("('ibus', '{engine}')");
+    let item = ibus_source(engine);
     let mut items = source_items(current);
     if items.iter().any(|source| source == &item) {
         source_list(&items)
@@ -393,6 +405,10 @@ fn append_ibus_source(current: &str, engine: &str) -> String {
         items.push(item);
         source_list(&items)
     }
+}
+
+fn ibus_source(engine: &str) -> String {
+    format!("('ibus', '{engine}')")
 }
 
 fn source_list(items: &[String]) -> String {
@@ -505,8 +521,14 @@ mod tests {
 
     #[test]
     fn parses_setup_caps_switch_option() {
-        let options = parse_setup_options(vec!["--caps-switch".into(), "--quiet".into()]).unwrap();
+        let options = parse_setup_options(vec![
+            "--caps-switch".into(),
+            "--exclusive".into(),
+            "--quiet".into(),
+        ])
+        .unwrap();
         assert!(options.caps_switch);
+        assert!(options.exclusive);
         assert!(options.quiet);
     }
 

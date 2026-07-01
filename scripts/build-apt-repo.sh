@@ -17,7 +17,10 @@ cp "$deb_dir"/korean_*_$arch.deb "$repo_dir/pool/$component/k/korean/"
   cd "$repo_dir"
   dpkg-scanpackages --arch "$arch" "pool" >"dists/$codename/$component/binary-$arch/Packages"
   gzip -9c "dists/$codename/$component/binary-$arch/Packages" >"dists/$codename/$component/binary-$arch/Packages.gz"
-  apt-ftparchive release "dists/$codename" >"dists/$codename/Release"
+  apt-ftparchive \
+    -o "APT::FTPArchive::Release::Suite=$codename" \
+    -o "APT::FTPArchive::Release::Codename=$codename" \
+    release "dists/$codename" >"dists/$codename/Release"
 )
 
 echo "$repo_dir"
