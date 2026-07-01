@@ -14,7 +14,6 @@ fn main() -> ExitCode {
         Some("setup") => setup(args.collect()),
         Some("status") => status(),
         Some("doctor") => doctor(),
-        Some("smooth") => smooth(),
         Some("simulate") => {
             let input = args.next().unwrap_or_default();
             simulate(&input)
@@ -35,7 +34,6 @@ fn print_usage() {
   korean setup [--caps-switch] [--quiet]
   korean status
   korean doctor
-  korean smooth
   korean simulate <keys>
   korean reset"
     );
@@ -266,24 +264,6 @@ fn doctor() -> ExitCode {
     } else {
         ExitCode::from(1)
     }
-}
-
-fn smooth() -> ExitCode {
-    if !command_exists("gsettings") {
-        eprintln!("gsettings not found. Tune keyboard repeat in your desktop keyboard settings.");
-        return ExitCode::from(1);
-    }
-
-    if !configure_smooth_keyboard() {
-        eprintln!("Could not tune keyboard repeat settings automatically.");
-        return ExitCode::from(1);
-    }
-
-    println!(
-        "Keyboard repeat tuned: delay={}ms repeat-interval={}ms",
-        SMOOTH_KEYBOARD_DELAY_MS, SMOOTH_KEYBOARD_REPEAT_INTERVAL_MS
-    );
-    ExitCode::SUCCESS
 }
 
 fn simulate(input: &str) -> ExitCode {
