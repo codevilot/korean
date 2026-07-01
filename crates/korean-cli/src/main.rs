@@ -142,8 +142,15 @@ fn setup(args: Vec<String>) -> ExitCode {
         eprintln!("gsettings not found. Add Korean manually in GNOME Settings.");
     }
 
+    if !restart_ibus() {
+        eprintln!("Could not restart IBus automatically.");
+        eprintln!("Run: ibus restart");
+        return ExitCode::from(1);
+    }
+
     if !options.quiet {
         println!("Korean setup completed.");
+        println!("IBus restarted.");
         if options.caps_switch {
             println!("Caps Lock is configured as the GNOME input source switch key.");
         }
@@ -344,6 +351,14 @@ fn run_gsettings_set_schema(schema: &str, key: &str, value: &str) -> bool {
         .arg(schema)
         .arg(key)
         .arg(value)
+        .status()
+        .map(|status| status.success())
+        .unwrap_or(false)
+}
+
+fn restart_ibus() -> bool {
+    Command::new("ibus")
+        .arg("restart")
         .status()
         .map(|status| status.success())
         .unwrap_or(false)
