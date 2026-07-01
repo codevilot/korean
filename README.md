@@ -20,7 +20,7 @@ sudo apt update
 sudo apt install korean
 ```
 
-On the next GNOME login, the package automatically registers Korean as an IBus source and sets Caps Lock as the input-source switch key. To apply it immediately in the current session, run:
+On the next GNOME login, the package automatically registers Korean as an IBus source. The Korean engine handles Caps Lock internally for Korean/English mode switching. To apply it immediately in the current session, run:
 
 ```bash
 korean start
@@ -87,7 +87,7 @@ For a rebuild/restart loop:
 ./scripts/dev-watch.sh
 ```
 
-The script selects `Korean Dev` and sets Caps Lock as the GNOME input-source switch key. If the current session does not pick it up, select `Korean Dev` from GNOME Settings > Keyboard > Input Sources or from the top-bar input source menu.
+The script selects `Korean Dev` and restarts IBus. If the current session does not pick it up, select `Korean Dev` from GNOME Settings > Keyboard > Input Sources or from the top-bar input source menu.
 
 ## Design
 
@@ -95,7 +95,7 @@ The script selects `Korean Dev` and sets Caps Lock as the GNOME input-source swi
 - `korean-state` owns input mode transitions.
 - `korean-ibus` is the IBus engine and handles Hangul preedit/commit behavior.
 - `korean` is the CLI installed at `/usr/bin/korean`.
-- GNOME Caps Lock input-source switching is configured by `korean start`.
+- Caps Lock Korean/English switching is handled inside the Korean IBus engine.
 - `korean-capsd` is optional infrastructure for future Caps Lock tap/hold behavior.
 
 ## Notes
