@@ -130,11 +130,11 @@ extern "C" fn bk_engine_process_key_event(
     }
 
     if keyval == KEY_BACKSPACE {
-        if !drop_preedit_for_backspace(&mut state.composer) {
-            return 0;
+        if !state.composer.preedit().is_empty() {
+            commit_preedit(state, engine);
+            clear_preedit(engine);
         }
-        clear_preedit(engine);
-        return 1;
+        return 0;
     }
 
     match state.modes.mode() {
@@ -189,15 +189,6 @@ fn en_key_for_modifiers(ch: char, modifiers: u32) -> char {
         ch.to_ascii_uppercase()
     } else {
         ch.to_ascii_lowercase()
-    }
-}
-
-fn drop_preedit_for_backspace(composer: &mut HangulComposer) -> bool {
-    if composer.preedit().is_empty() {
-        false
-    } else {
-        composer.reset();
-        true
     }
 }
 
@@ -279,8 +270,8 @@ fn engine_state<'a>(state: *mut c_void) -> Option<&'a mut EngineState> {
 #[cfg(test)]
 mod tests {
     use super::{
-        drop_preedit_for_backspace, en_key_for_modifiers, is_modifier_key, ko_key_for_modifiers,
-        HangulComposer, IBUS_SHIFT_MASK, KEY_SHIFT_L, KEY_SHIFT_R,
+        en_key_for_modifiers, is_modifier_key, ko_key_for_modifiers, IBUS_SHIFT_MASK, KEY_SHIFT_L,
+        KEY_SHIFT_R,
     };
 
     #[test]
@@ -304,17 +295,5 @@ mod tests {
         assert_eq!(en_key_for_modifiers('A', 0), 'a');
         assert_eq!(en_key_for_modifiers('a', IBUS_SHIFT_MASK), 'A');
         assert_eq!(en_key_for_modifiers('A', IBUS_SHIFT_MASK), 'A');
-    }
-
-    #[test]
-    fn backspace_drops_active_preedit_as_one_unit() {
-        let mut composer = HangulComposer::new();
-        for ch in "dlT".chars() {
-            composer.input_key(ch);
-        }
-        assert_eq!(composer.preedit(), "있");
-        assert!(drop_preedit_for_backspace(&mut composer));
-        assert_eq!(composer.preedit(), "");
-        assert!(!drop_preedit_for_backspace(&mut composer));
     }
 }
