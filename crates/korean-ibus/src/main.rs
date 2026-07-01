@@ -17,6 +17,8 @@ const KEY_BACKSPACE: u32 = 0xff08;
 const KEY_RETURN: u32 = 0xff0d;
 const KEY_ESCAPE: u32 = 0xff1b;
 const KEY_CAPS_LOCK: u32 = 0xffe5;
+const KEY_SHIFT_L: u32 = 0xffe1;
+const KEY_SHIFT_R: u32 = 0xffe2;
 const KEY_SPACE: u32 = 0x020;
 
 #[link(name = "ibus_shim", kind = "static")]
@@ -114,6 +116,10 @@ extern "C" fn bk_engine_process_key_event(
         return 1;
     }
 
+    if is_modifier_key(keyval) {
+        return 0;
+    }
+
     if keyval == KEY_ESCAPE {
         if state.composer.preedit().is_empty() {
             return 0;
@@ -132,27 +138,17 @@ extern "C" fn bk_engine_process_key_event(
     }
 
     match state.modes.mode() {
-        InputMode::En => {
-            if keyval == KEY_RETURN || keyval == KEY_SPACE {
-                commit_preedit(state, engine);
-            }
-            0
-        }
-        InputMode::EnCaps => process_en_caps(engine, keyval, modifiers),
+        InputMode::En | InputMode::EnCaps => process_en(engine, keyval, modifiers),
         InputMode::Ko => process_ko(state, engine, keyval, modifiers),
     }
 }
 
-fn process_en_caps(engine: *mut c_void, keyval: u32, modifiers: u32) -> c_int {
+fn process_en(engine: *mut c_void, keyval: u32, modifiers: u32) -> c_int {
     if has_command_modifier(modifiers) {
         return 0;
     }
     if let Some(ch) = ascii_letter(keyval) {
-        let out = if modifiers & IBUS_SHIFT_MASK != 0 {
-            ch.to_ascii_lowercase()
-        } else {
-            ch.to_ascii_uppercase()
-        };
+        let out = en_key_for_modifiers(ch, modifiers);
         commit_text(engine, &out.to_string());
         return 1;
     }
@@ -182,6 +178,14 @@ fn process_ko(state: &mut EngineState, engine: *mut c_void, keyval: u32, modifie
 
 fn ko_key_for_modifiers(ch: char, modifiers: u32) -> char {
     if ch.is_ascii_uppercase() || modifiers & IBUS_SHIFT_MASK != 0 {
+        ch.to_ascii_uppercase()
+    } else {
+        ch.to_ascii_lowercase()
+    }
+}
+
+fn en_key_for_modifiers(ch: char, modifiers: u32) -> char {
+    if modifiers & IBUS_SHIFT_MASK != 0 {
         ch.to_ascii_uppercase()
     } else {
         ch.to_ascii_lowercase()
@@ -241,6 +245,10 @@ fn has_command_modifier(modifiers: u32) -> bool {
     modifiers & (IBUS_CONTROL_MASK | IBUS_MOD1_MASK) != 0
 }
 
+fn is_modifier_key(keyval: u32) -> bool {
+    matches!(keyval, KEY_SHIFT_L | KEY_SHIFT_R)
+}
+
 fn debug_log(args: std::fmt::Arguments<'_>) {
     let Ok(path) = std::env::var("KOREAN_DEBUG_LOG") else {
         return;
@@ -261,7 +269,10 @@ fn engine_state<'a>(state: *mut c_void) -> Option<&'a mut EngineState> {
 
 #[cfg(test)]
 mod tests {
-    use super::{ko_key_for_modifiers, IBUS_SHIFT_MASK};
+    use super::{
+        en_key_for_modifiers, is_modifier_key, ko_key_for_modifiers, IBUS_SHIFT_MASK, KEY_SHIFT_L,
+        KEY_SHIFT_R,
+    };
 
     #[test]
     fn korean_mode_uses_shift_modifier_instead_of_keyval_case() {
@@ -269,5 +280,20 @@ mod tests {
         assert_eq!(ko_key_for_modifiers('R', 0), 'R');
         assert_eq!(ko_key_for_modifiers('r', IBUS_SHIFT_MASK), 'R');
         assert_eq!(ko_key_for_modifiers('R', IBUS_SHIFT_MASK), 'R');
+    }
+
+    #[test]
+    fn shift_keys_are_modifier_only_events() {
+        assert!(is_modifier_key(KEY_SHIFT_L));
+        assert!(is_modifier_key(KEY_SHIFT_R));
+        assert!(!is_modifier_key('a' as u32));
+    }
+
+    #[test]
+    fn english_mode_is_lowercase_unless_shift_is_held() {
+        assert_eq!(en_key_for_modifiers('a', 0), 'a');
+        assert_eq!(en_key_for_modifiers('A', 0), 'a');
+        assert_eq!(en_key_for_modifiers('a', IBUS_SHIFT_MASK), 'A');
+        assert_eq!(en_key_for_modifiers('A', IBUS_SHIFT_MASK), 'A');
     }
 }
