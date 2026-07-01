@@ -13,7 +13,7 @@ pub struct ModeState {
 impl Default for ModeState {
     fn default() -> Self {
         Self {
-            mode: InputMode::En,
+            mode: InputMode::Ko,
         }
     }
 }
@@ -61,8 +61,8 @@ mod tests {
     #[test]
     fn caps_tap_transitions() {
         let mut state = ModeState::new();
-        assert_eq!(state.caps_tap(), InputMode::Ko);
         assert_eq!(state.caps_tap(), InputMode::En);
+        assert_eq!(state.caps_tap(), InputMode::Ko);
         state.set_mode(InputMode::EnCaps);
         assert_eq!(state.caps_tap(), InputMode::Ko);
     }
@@ -70,6 +70,8 @@ mod tests {
     #[test]
     fn caps_hold_transitions() {
         let mut state = ModeState::new();
+        assert_eq!(state.caps_hold(), InputMode::EnCaps);
+        state.set_mode(InputMode::En);
         assert_eq!(state.caps_hold(), InputMode::EnCaps);
         assert_eq!(state.caps_hold(), InputMode::En);
         state.set_mode(InputMode::Ko);

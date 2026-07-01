@@ -103,6 +103,15 @@ fn setup(args: Vec<String>) -> ExitCode {
     if command_exists("gsettings") {
         let mut current = gsettings("get", "org.gnome.desktop.input-sources", "sources")
             .unwrap_or_else(|| "[]".to_string());
+        if !has_non_korean_source(&current, &engine) {
+            let updated = prepend_xkb_source(&current, "us");
+            if !run_gsettings_set("sources", &updated) {
+                eprintln!("Could not add a default English input source automatically.");
+                eprintln!("Add English (US) from Settings > Keyboard > Input Sources.");
+                return ExitCode::from(1);
+            }
+            current = updated;
+        }
         if !current.contains(&engine) {
             let updated = append_ibus_source(&current, &engine);
             if !run_gsettings_set("sources", &updated) {
@@ -375,6 +384,22 @@ fn append_ibus_source(current: &str, engine: &str) -> String {
     }
 }
 
+fn prepend_xkb_source(current: &str, layout: &str) -> String {
+    let item = format!("('xkb', '{layout}')");
+    let mut items = source_items(current);
+    if !items.iter().any(|source| source == &item) {
+        items.insert(0, item);
+    }
+    source_list(&items)
+}
+
+fn has_non_korean_source(current: &str, engine: &str) -> bool {
+    let korean_source = format!("('ibus', '{engine}')");
+    source_items(current)
+        .iter()
+        .any(|source| source != &korean_source)
+}
+
 fn source_list(items: &[String]) -> String {
     if items.is_empty() {
         "[]".to_string()
@@ -431,7 +456,10 @@ fn source_items(current: &str) -> Vec<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{append_ibus_source, parse_setup_options, remove_ibus_source, source_index};
+    use super::{
+        append_ibus_source, has_non_korean_source, parse_setup_options, prepend_xkb_source,
+        remove_ibus_source, source_index,
+    };
 
     #[test]
     fn appends_korean_to_empty_sources() {
@@ -450,6 +478,26 @@ mod tests {
     fn does_not_duplicate_existing_korean_source() {
         let sources = "[('ibus', 'korean')]";
         assert_eq!(append_ibus_source(sources, "korean"), sources);
+    }
+
+    #[test]
+    fn prepends_english_source_to_empty_sources() {
+        assert_eq!(prepend_xkb_source("@a(ss) []", "us"), "[('xkb', 'us')]");
+    }
+
+    #[test]
+    fn keeps_existing_english_source() {
+        let sources = "[('xkb', 'us'), ('ibus', 'korean')]";
+        assert_eq!(prepend_xkb_source(sources, "us"), sources);
+    }
+
+    #[test]
+    fn detects_non_korean_source() {
+        assert!(has_non_korean_source(
+            "[('xkb', 'us'), ('ibus', 'korean')]",
+            "korean"
+        ));
+        assert!(!has_non_korean_source("[('ibus', 'korean')]", "korean"));
     }
 
     #[test]
