@@ -366,13 +366,20 @@ fn restore_default_switch_keys() -> bool {
 
 fn append_ibus_source(current: &str, engine: &str) -> String {
     let item = format!("('ibus', '{engine}')");
-    let trimmed = current.trim();
-    if trimmed == "[]" || trimmed.is_empty() {
-        format!("[{item}]")
-    } else if let Some(prefix) = trimmed.strip_suffix(']') {
-        format!("{}, {item}]", prefix.trim_end())
+    let mut items = source_items(current);
+    if items.iter().any(|source| source == &item) {
+        source_list(&items)
     } else {
-        format!("[{item}]")
+        items.push(item);
+        source_list(&items)
+    }
+}
+
+fn source_list(items: &[String]) -> String {
+    if items.is_empty() {
+        "[]".to_string()
+    } else {
+        format!("[{}]", items.join(", "))
     }
 }
 
@@ -382,11 +389,7 @@ fn remove_ibus_source(current: &str, engine: &str) -> String {
         .into_iter()
         .filter(|item| !item.contains(&needle))
         .collect::<Vec<_>>();
-    if items.is_empty() {
-        "[]".to_string()
-    } else {
-        format!("[{}]", items.join(", "))
-    }
+    source_list(&items)
 }
 
 fn source_index(current: &str, engine: &str) -> Option<usize> {
@@ -401,10 +404,11 @@ fn source_index(current: &str, engine: &str) -> Option<usize> {
 
 fn source_items(current: &str) -> Vec<String> {
     let trimmed = current.trim();
-    let inner = trimmed
+    let without_type = trimmed.strip_prefix("@a(ss)").unwrap_or(trimmed).trim();
+    let inner = without_type
         .strip_prefix('[')
         .and_then(|value| value.strip_suffix(']'))
-        .unwrap_or(trimmed)
+        .unwrap_or(without_type)
         .trim();
     if inner.is_empty() {
         return Vec::new();
@@ -435,6 +439,20 @@ mod tests {
     }
 
     #[test]
+    fn appends_korean_to_typed_empty_sources() {
+        assert_eq!(
+            append_ibus_source("@a(ss) []", "korean"),
+            "[('ibus', 'korean')]"
+        );
+    }
+
+    #[test]
+    fn does_not_duplicate_existing_korean_source() {
+        let sources = "[('ibus', 'korean')]";
+        assert_eq!(append_ibus_source(sources, "korean"), sources);
+    }
+
+    #[test]
     fn finds_korean_source_index() {
         let sources = "[('xkb', 'us'), ('ibus', 'korean')]";
         assert_eq!(source_index(sources, "korean"), Some(1));
@@ -458,6 +476,11 @@ mod tests {
     #[test]
     fn removes_korean_when_it_is_only_source() {
         assert_eq!(remove_ibus_source("[('ibus', 'korean')]", "korean"), "[]");
+    }
+
+    #[test]
+    fn removes_from_typed_empty_sources() {
+        assert_eq!(remove_ibus_source("@a(ss) []", "korean"), "[]");
     }
 
     #[test]
