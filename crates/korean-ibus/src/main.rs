@@ -181,7 +181,7 @@ fn process_ko(state: &mut EngineState, engine: *mut c_void, keyval: u32, modifie
 }
 
 fn ko_key_for_modifiers(ch: char, modifiers: u32) -> char {
-    if modifiers & IBUS_SHIFT_MASK != 0 {
+    if ch.is_ascii_uppercase() || modifiers & IBUS_SHIFT_MASK != 0 {
         ch.to_ascii_uppercase()
     } else {
         ch.to_ascii_lowercase()
@@ -266,7 +266,7 @@ mod tests {
     #[test]
     fn korean_mode_uses_shift_modifier_instead_of_keyval_case() {
         assert_eq!(ko_key_for_modifiers('r', 0), 'r');
-        assert_eq!(ko_key_for_modifiers('R', 0), 'r');
+        assert_eq!(ko_key_for_modifiers('R', 0), 'R');
         assert_eq!(ko_key_for_modifiers('r', IBUS_SHIFT_MASK), 'R');
         assert_eq!(ko_key_for_modifiers('R', IBUS_SHIFT_MASK), 'R');
     }

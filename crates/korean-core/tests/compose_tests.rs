@@ -27,6 +27,9 @@ fn composes_basic_words() {
     assert_eq!(simulate("qkq"), "밥");
     assert_eq!(simulate("dks"), "안");
     assert_eq!(simulate("gks"), "한");
+    assert_eq!(simulate("dlT"), "있");
+    assert_eq!(simulate("dlTek"), "있다");
+    assert_eq!(simulate("dlTdj"), "있어");
 }
 
 #[test]
