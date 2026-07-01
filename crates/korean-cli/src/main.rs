@@ -3,6 +3,9 @@ use std::process::{Command, ExitCode};
 
 use korean_core::{HangulComposer, InputResult};
 
+const SMOOTH_KEYBOARD_DELAY_MS: &str = "180";
+const SMOOTH_KEYBOARD_REPEAT_INTERVAL_MS: &str = "15";
+
 fn main() -> ExitCode {
     let mut args = env::args().skip(1);
     match args.next().as_deref() {
@@ -11,6 +14,7 @@ fn main() -> ExitCode {
         Some("setup") => setup(args.collect()),
         Some("status") => status(),
         Some("doctor") => doctor(),
+        Some("smooth") => smooth(),
         Some("simulate") => {
             let input = args.next().unwrap_or_default();
             simulate(&input)
@@ -31,6 +35,7 @@ fn print_usage() {
   korean setup [--caps-switch] [--quiet]
   korean status
   korean doctor
+  korean smooth
   korean simulate <keys>
   korean reset"
     );
@@ -143,6 +148,10 @@ fn setup(args: Vec<String>) -> ExitCode {
             eprintln!("Could not restore GNOME input-source switch keys automatically.");
             return ExitCode::from(1);
         }
+
+        if !configure_smooth_keyboard() {
+            eprintln!("Could not tune keyboard repeat settings automatically.");
+        }
     } else {
         eprintln!("gsettings not found. Add Korean manually in GNOME Settings.");
     }
@@ -161,6 +170,7 @@ fn setup(args: Vec<String>) -> ExitCode {
         } else {
             println!("Caps Lock is handled by the Korean input method.");
         }
+        println!("Keyboard repeat is tuned for smoother deletion and typing.");
         println!("Select '{engine}' in the GNOME input source menu if it is not active yet.");
     }
     ExitCode::SUCCESS
@@ -256,6 +266,24 @@ fn doctor() -> ExitCode {
     } else {
         ExitCode::from(1)
     }
+}
+
+fn smooth() -> ExitCode {
+    if !command_exists("gsettings") {
+        eprintln!("gsettings not found. Tune keyboard repeat in your desktop keyboard settings.");
+        return ExitCode::from(1);
+    }
+
+    if !configure_smooth_keyboard() {
+        eprintln!("Could not tune keyboard repeat settings automatically.");
+        return ExitCode::from(1);
+    }
+
+    println!(
+        "Keyboard repeat tuned: delay={}ms repeat-interval={}ms",
+        SMOOTH_KEYBOARD_DELAY_MS, SMOOTH_KEYBOARD_REPEAT_INTERVAL_MS
+    );
+    ExitCode::SUCCESS
 }
 
 fn simulate(input: &str) -> ExitCode {
@@ -396,6 +424,18 @@ fn restore_default_switch_keys() -> bool {
     )
 }
 
+fn configure_smooth_keyboard() -> bool {
+    run_gsettings_set_schema(
+        "org.gnome.desktop.peripherals.keyboard",
+        "delay",
+        SMOOTH_KEYBOARD_DELAY_MS,
+    ) && run_gsettings_set_schema(
+        "org.gnome.desktop.peripherals.keyboard",
+        "repeat-interval",
+        SMOOTH_KEYBOARD_REPEAT_INTERVAL_MS,
+    )
+}
+
 fn append_ibus_source(current: &str, engine: &str) -> String {
     let item = ibus_source(engine);
     let mut items = source_items(current);
@@ -467,7 +507,10 @@ fn source_items(current: &str) -> Vec<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{append_ibus_source, parse_setup_options, remove_ibus_source, source_index};
+    use super::{
+        append_ibus_source, parse_setup_options, remove_ibus_source, source_index,
+        SMOOTH_KEYBOARD_DELAY_MS, SMOOTH_KEYBOARD_REPEAT_INTERVAL_MS,
+    };
 
     #[test]
     fn appends_korean_to_empty_sources() {
@@ -535,5 +578,13 @@ mod tests {
     #[test]
     fn rejects_unknown_setup_option() {
         assert!(parse_setup_options(vec!["--unknown".into()]).is_err());
+    }
+
+    #[test]
+    fn smooth_keyboard_repeat_values_are_fast() {
+        let delay: u32 = SMOOTH_KEYBOARD_DELAY_MS.parse().unwrap();
+        let interval: u32 = SMOOTH_KEYBOARD_REPEAT_INTERVAL_MS.parse().unwrap();
+        assert!(delay <= 200);
+        assert!(interval <= 20);
     }
 }
