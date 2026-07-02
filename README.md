@@ -56,8 +56,21 @@ korean start
 korean stop
 korean status
 korean doctor
+korean speed 180 15
 korean simulate gksrmf
 korean reset
+```
+
+Keyboard repeat can be tuned at any time:
+
+```bash
+korean speed 180 15
+```
+
+The first value is the repeat delay in milliseconds, and the second value is the repeat interval in milliseconds. Larger values feel slower. The setup command accepts the same tuning:
+
+```bash
+korean setup --repeat-delay-ms 220 --repeat-interval-ms 20
 ```
 
 Expected simulation:
@@ -79,6 +92,12 @@ Install build dependencies, then run the dev engine from the working tree:
 ```bash
 sudo apt install -y build-essential cargo rustc pkg-config libibus-1.0-dev libglib2.0-dev libevdev-dev libudev-dev
 ./scripts/dev-apply.sh
+```
+
+During development, tune key repeat with:
+
+```bash
+KOREAN_DEV_REPEAT_DELAY_MS=180 KOREAN_DEV_REPEAT_INTERVAL_MS=15 ./scripts/dev-apply.sh
 ```
 
 For a rebuild/restart loop:

@@ -14,6 +14,10 @@ cli_bin="$repo_dir/target/debug/korean"
 ibus_bin="$repo_dir/target/debug/korean-ibus"
 ibus_wrapper="$repo_dir/target/debug/korean-ibus-dev"
 debug_log="/tmp/korean-ibus.log"
+render_mode="${KOREAN_DEV_RENDER_MODE:-delayed_preview}"
+delete_mode="${KOREAN_DEV_DELETE_MODE:-surrounding}"
+repeat_delay_ms="${KOREAN_DEV_REPEAT_DELAY_MS:-180}"
+repeat_interval_ms="${KOREAN_DEV_REPEAT_INTERVAL_MS:-15}"
 tmp_component="$(mktemp)"
 trap 'rm -f "$tmp_component"' EXIT
 
@@ -52,14 +56,39 @@ select_gnome_source() {
   gsettings set org.gnome.desktop.wm.keybindings switch-input-source-backward "[]" || return 0
 }
 
+wait_for_ibus() {
+  local i
+  for i in {1..30}; do
+    if ibus engine >/dev/null 2>&1; then
+      return 0
+    fi
+    sleep 0.1
+  done
+  return 1
+}
+
+tune_keyboard_repeat() {
+  if [[ "${KOREAN_DEV_TUNE_KEYBOARD:-1}" == "0" ]]; then
+    return 0
+  fi
+  if ! command -v gsettings >/dev/null 2>&1; then
+    return 0
+  fi
+  gsettings set org.gnome.desktop.peripherals.keyboard delay "$repeat_delay_ms" || return 0
+  gsettings set org.gnome.desktop.peripherals.keyboard repeat-interval "$repeat_interval_ms" || return 0
+}
+
 cargo build -p korean-cli -p korean-ibus
 
 mkdir -p "$component_dir" "$bin_dir"
 ln -sf "$cli_bin" "$bin_dir/korean"
+: >"$debug_log"
 cat >"$ibus_wrapper" <<WRAPPER
 #!/usr/bin/env bash
 export KOREAN_DEBUG_LOG="$debug_log"
 export KOREAN_IBUS_SERVICE="$service_name"
+export KOREAN_RENDER_MODE="$render_mode"
+export KOREAN_DELETE_MODE="$delete_mode"
 exec "$ibus_bin" "\$@"
 WRAPPER
 chmod +x "$ibus_wrapper"
@@ -113,7 +142,10 @@ MSG
   ibus write-cache || true
 fi
 ibus restart || true
+wait_for_ibus || true
 select_gnome_source
+tune_keyboard_repeat
+ibus engine "$engine_name" || true
 
 cat <<MSG
 Korean dev engine applied.
@@ -124,6 +156,16 @@ IBus exec:
 Debug log:
   $debug_log
 
+Render mode:
+  $render_mode
+
+Delete mode:
+  $delete_mode
+
+Keyboard repeat:
+  delay=${repeat_delay_ms}ms
+  interval=${repeat_interval_ms}ms
+
 Component:
   $component_file
 
@@ -131,6 +173,18 @@ During development, rerun:
   ./scripts/dev-apply.sh
 
 Select 'Korean Dev' from the GNOME input source menu.
+
+To test visible_tail explicitly:
+  KOREAN_DEV_RENDER_MODE=visible_tail ./scripts/dev-apply.sh
+
+To disable preedit preview while keeping delayed commits:
+  KOREAN_DEV_RENDER_MODE=delayed ./scripts/dev-apply.sh
+
+To tune Backspace/key-repeat speed:
+  KOREAN_DEV_REPEAT_DELAY_MS=180 KOREAN_DEV_REPEAT_INTERVAL_MS=15 ./scripts/dev-apply.sh
+
+To test the previous preedit path:
+  KOREAN_DEV_RENDER_MODE=preedit ./scripts/dev-apply.sh
 MSG
 
 if [[ "$(command -v korean 2>/dev/null || true)" != "$bin_dir/korean" ]]; then

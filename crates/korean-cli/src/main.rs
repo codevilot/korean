@@ -14,6 +14,7 @@ fn main() -> ExitCode {
         Some("setup") => setup(args.collect()),
         Some("status") => status(),
         Some("doctor") => doctor(),
+        Some("speed") => speed(args.collect()),
         Some("simulate") => {
             let input = args.next().unwrap_or_default();
             simulate(&input)
@@ -34,6 +35,7 @@ fn print_usage() {
   korean setup [--caps-switch] [--quiet]
   korean status
   korean doctor
+  korean speed [delay-ms repeat-interval-ms]
   korean simulate <keys>
   korean reset"
     );
@@ -73,11 +75,39 @@ fn stop() -> ExitCode {
     ExitCode::SUCCESS
 }
 
-#[derive(Default)]
 struct SetupOptions {
     caps_switch: bool,
     exclusive: bool,
     quiet: bool,
+    repeat: RepeatSettings,
+    tune_keyboard: bool,
+}
+
+impl Default for SetupOptions {
+    fn default() -> Self {
+        Self {
+            caps_switch: false,
+            exclusive: false,
+            quiet: false,
+            repeat: RepeatSettings::default(),
+            tune_keyboard: true,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+struct RepeatSettings {
+    delay_ms: u32,
+    interval_ms: u32,
+}
+
+impl Default for RepeatSettings {
+    fn default() -> Self {
+        Self {
+            delay_ms: SMOOTH_KEYBOARD_DELAY_MS.parse().unwrap(),
+            interval_ms: SMOOTH_KEYBOARD_REPEAT_INTERVAL_MS.parse().unwrap(),
+        }
+    }
 }
 
 fn setup(args: Vec<String>) -> ExitCode {
@@ -147,7 +177,7 @@ fn setup(args: Vec<String>) -> ExitCode {
             return ExitCode::from(1);
         }
 
-        if !configure_smooth_keyboard() {
+        if options.tune_keyboard && !configure_keyboard_repeat(options.repeat) {
             eprintln!("Could not tune keyboard repeat settings automatically.");
         }
     } else {
@@ -168,7 +198,12 @@ fn setup(args: Vec<String>) -> ExitCode {
         } else {
             println!("Caps Lock is handled by the Korean input method.");
         }
-        println!("Keyboard repeat is tuned for smoother deletion and typing.");
+        if options.tune_keyboard {
+            println!(
+                "Keyboard repeat is tuned: delay={}ms interval={}ms.",
+                options.repeat.delay_ms, options.repeat.interval_ms
+            );
+        }
         println!("Select '{engine}' in the GNOME input source menu if it is not active yet.");
     }
     ExitCode::SUCCESS
@@ -176,15 +211,77 @@ fn setup(args: Vec<String>) -> ExitCode {
 
 fn parse_setup_options(args: Vec<String>) -> Result<SetupOptions, String> {
     let mut options = SetupOptions::default();
-    for arg in args {
+    let mut args = args.into_iter();
+    while let Some(arg) = args.next() {
         match arg.as_str() {
             "--caps-switch" => options.caps_switch = true,
             "--exclusive" => options.exclusive = true,
             "--quiet" => options.quiet = true,
+            "--no-keyboard-tune" => options.tune_keyboard = false,
+            "--repeat-delay-ms" => {
+                let value = args
+                    .next()
+                    .ok_or_else(|| "--repeat-delay-ms requires a value".to_string())?;
+                options.repeat.delay_ms = parse_repeat_value("--repeat-delay-ms", &value)?;
+            }
+            "--repeat-interval-ms" => {
+                let value = args
+                    .next()
+                    .ok_or_else(|| "--repeat-interval-ms requires a value".to_string())?;
+                options.repeat.interval_ms = parse_repeat_value("--repeat-interval-ms", &value)?;
+            }
             _ => return Err(format!("Unknown setup option: {arg}")),
         }
     }
     Ok(options)
+}
+
+fn speed(args: Vec<String>) -> ExitCode {
+    let settings = match parse_speed_args(args) {
+        Ok(settings) => settings,
+        Err(message) => {
+            eprintln!("{message}");
+            eprintln!("Usage: korean speed [delay-ms repeat-interval-ms]");
+            return ExitCode::from(2);
+        }
+    };
+
+    if !command_exists("gsettings") {
+        eprintln!("gsettings not found. Adjust keyboard repeat in GNOME Settings.");
+        return ExitCode::from(1);
+    }
+
+    if !configure_keyboard_repeat(settings) {
+        eprintln!("Could not tune keyboard repeat settings automatically.");
+        return ExitCode::from(1);
+    }
+
+    println!(
+        "Keyboard repeat tuned: delay={}ms interval={}ms.",
+        settings.delay_ms, settings.interval_ms
+    );
+    ExitCode::SUCCESS
+}
+
+fn parse_speed_args(args: Vec<String>) -> Result<RepeatSettings, String> {
+    match args.as_slice() {
+        [] => Ok(RepeatSettings::default()),
+        [delay, interval] => Ok(RepeatSettings {
+            delay_ms: parse_repeat_value("delay-ms", delay)?,
+            interval_ms: parse_repeat_value("repeat-interval-ms", interval)?,
+        }),
+        _ => Err("speed expects zero arguments or two numeric arguments".to_string()),
+    }
+}
+
+fn parse_repeat_value(name: &str, value: &str) -> Result<u32, String> {
+    let parsed = value
+        .parse::<u32>()
+        .map_err(|_| format!("{name} must be a number: {value}"))?;
+    if parsed == 0 {
+        return Err(format!("{name} must be greater than 0"));
+    }
+    Ok(parsed)
 }
 
 fn status() -> ExitCode {
@@ -404,15 +501,15 @@ fn restore_default_switch_keys() -> bool {
     )
 }
 
-fn configure_smooth_keyboard() -> bool {
+fn configure_keyboard_repeat(settings: RepeatSettings) -> bool {
     run_gsettings_set_schema(
         "org.gnome.desktop.peripherals.keyboard",
         "delay",
-        SMOOTH_KEYBOARD_DELAY_MS,
+        &settings.delay_ms.to_string(),
     ) && run_gsettings_set_schema(
         "org.gnome.desktop.peripherals.keyboard",
         "repeat-interval",
-        SMOOTH_KEYBOARD_REPEAT_INTERVAL_MS,
+        &settings.interval_ms.to_string(),
     )
 }
 
@@ -488,8 +585,8 @@ fn source_items(current: &str) -> Vec<String> {
 #[cfg(test)]
 mod tests {
     use super::{
-        append_ibus_source, parse_setup_options, remove_ibus_source, source_index,
-        SMOOTH_KEYBOARD_DELAY_MS, SMOOTH_KEYBOARD_REPEAT_INTERVAL_MS,
+        append_ibus_source, parse_setup_options, parse_speed_args, remove_ibus_source,
+        source_index, RepeatSettings, SMOOTH_KEYBOARD_DELAY_MS, SMOOTH_KEYBOARD_REPEAT_INTERVAL_MS,
     };
 
     #[test]
@@ -553,6 +650,38 @@ mod tests {
         assert!(options.caps_switch);
         assert!(options.exclusive);
         assert!(options.quiet);
+    }
+
+    #[test]
+    fn parses_setup_repeat_options() {
+        let options = parse_setup_options(vec![
+            "--repeat-delay-ms".into(),
+            "220".into(),
+            "--repeat-interval-ms".into(),
+            "18".into(),
+        ])
+        .unwrap();
+        assert_eq!(options.repeat.delay_ms, 220);
+        assert_eq!(options.repeat.interval_ms, 18);
+        assert!(options.tune_keyboard);
+
+        let options = parse_setup_options(vec!["--no-keyboard-tune".into()]).unwrap();
+        assert!(!options.tune_keyboard);
+    }
+
+    #[test]
+    fn parses_speed_command_values() {
+        assert_eq!(parse_speed_args(vec![]).unwrap(), RepeatSettings::default());
+        assert_eq!(
+            parse_speed_args(vec!["250".into(), "25".into()]).unwrap(),
+            RepeatSettings {
+                delay_ms: 250,
+                interval_ms: 25
+            }
+        );
+        assert!(parse_speed_args(vec!["250".into()]).is_err());
+        assert!(parse_speed_args(vec!["0".into(), "25".into()]).is_err());
+        assert!(parse_speed_args(vec!["fast".into(), "25".into()]).is_err());
     }
 
     #[test]
