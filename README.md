@@ -1,3 +1,13 @@
+# Quick install without adding an APT source
+
+If you do not want to add this repository as an APT source or run `sudo apt update`, download the GitHub Pages `.deb` directly and install that local file:
+
+```bash
+curl -fL -o korean_0.1.8_amd64.deb https://codevilot.github.io/korean/pool/main/k/korean/korean_0.1.8_amd64.deb
+sudo apt install ./korean_0.1.8_amd64.deb
+korean start
+```
+
 # Korean
 
 `korean` is a macOS-like Korean input method for Linux. It provides a native IBus engine for two-beolsik Hangul composition and a small CLI for setup, diagnostics, and simulation.
