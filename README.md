@@ -49,6 +49,8 @@ korean start
 
 The generated repository layout is written to `public/` and is suitable for GitHub Pages. The GitHub Actions workflow in `.github/workflows/apt.yml` runs tests, builds the `.deb`, builds the APT repository, uploads the `.deb` artifact, and deploys the APT tree to Pages when `main` or a `v*` tag is pushed, or when the workflow is run manually.
 
+See [docs/PACKAGING.md](docs/PACKAGING.md) for the Debian, Ubuntu, and PPA packaging path.
+
 ## Use
 
 ```bash
