@@ -144,6 +144,19 @@ fn english_mode_is_lowercase_unless_shift_is_held() {
 }
 
 #[test]
+fn english_mode_forwards_tab_and_navigation_keys() {
+    let mut state = state(RenderMode::DelayedPreview);
+    let mut ops = FakeOps::default();
+
+    assert!(pass_key(&mut state, &mut ops, KEY_CAPS_LOCK));
+    assert!(pass_key(&mut state, &mut ops, KEY_TAB));
+    assert!(pass_key(&mut state, &mut ops, KEY_RIGHT));
+
+    assert!(ops.events.contains(&Event::Forward(KEY_TAB, 0)));
+    assert!(ops.events.contains(&Event::Forward(KEY_RIGHT, 0)));
+}
+
+#[test]
 fn visible_tail_composes_basic_words_without_raw_key_leak() {
     for (input, expected) in [
         ("gks", "한"),

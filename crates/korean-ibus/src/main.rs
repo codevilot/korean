@@ -11,7 +11,7 @@ mod keys;
 
 use config::{DeleteMode, RenderMode};
 use keys::{
-    ascii_letter, ascii_symbol_or_digit, has_command_modifier, is_modifier_key,
+    ascii_letter, ascii_symbol_or_digit, forward_keycode, has_command_modifier, is_modifier_key,
     IBUS_CAP_SURROUNDING_TEXT, IBUS_RELEASE_MASK, IBUS_SHIFT_MASK, KEYCODE_BACKSPACE,
     KEY_BACKSPACE, KEY_CAPS_LOCK, KEY_DOWN, KEY_ESCAPE, KEY_LEFT, KEY_RETURN, KEY_RIGHT, KEY_SPACE,
     KEY_TAB, KEY_UP,
@@ -222,6 +222,13 @@ fn process_en(ops: &mut impl IbusOps, keyval: u32, modifiers: u32) -> bool {
     if let Some(ch) = ascii_letter(keyval) {
         let out = en_key_for_modifiers(ch, modifiers);
         ops.commit_text(&out.to_string());
+        return true;
+    }
+    if let Some(keycode) = forward_keycode(keyval) {
+        ops.forward_key_event(keyval, keycode, modifiers);
+        debug_log(format_args!(
+            "en forward_key_event keyval=0x{keyval:x} keycode={keycode} modifiers=0x{modifiers:x}"
+        ));
         return true;
     }
     false

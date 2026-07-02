@@ -8,6 +8,12 @@ pub(crate) const IBUS_CAP_SURROUNDING_TEXT: u32 = 1 << 5;
 
 pub(crate) const KEY_BACKSPACE: u32 = 0xff08;
 pub(crate) const KEYCODE_BACKSPACE: u32 = 14;
+pub(crate) const KEYCODE_TAB: u32 = 15;
+pub(crate) const KEYCODE_RETURN: u32 = 28;
+pub(crate) const KEYCODE_LEFT: u32 = 105;
+pub(crate) const KEYCODE_UP: u32 = 103;
+pub(crate) const KEYCODE_RIGHT: u32 = 106;
+pub(crate) const KEYCODE_DOWN: u32 = 108;
 pub(crate) const KEY_RETURN: u32 = 0xff0d;
 pub(crate) const KEY_ESCAPE: u32 = 0xff1b;
 pub(crate) const KEY_CAPS_LOCK: u32 = 0xffe5;
@@ -46,4 +52,16 @@ pub(crate) fn is_modifier_key(keyval: u32) -> bool {
         keyval,
         KEY_SHIFT_L | KEY_SHIFT_R | KEY_CONTROL_L | KEY_CONTROL_R | KEY_ALT_L | KEY_ALT_R
     )
+}
+
+pub(crate) fn forward_keycode(keyval: u32) -> Option<u32> {
+    match keyval {
+        KEY_TAB => Some(KEYCODE_TAB),
+        KEY_RETURN => Some(KEYCODE_RETURN),
+        KEY_LEFT => Some(KEYCODE_LEFT),
+        KEY_UP => Some(KEYCODE_UP),
+        KEY_RIGHT => Some(KEYCODE_RIGHT),
+        KEY_DOWN => Some(KEYCODE_DOWN),
+        _ => None,
+    }
 }

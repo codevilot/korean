@@ -27,30 +27,15 @@ select_gnome_source() {
   fi
 
   local schema="org.gnome.desktop.input-sources"
-  local sources
+  local sources updated
   sources="$(gsettings get "$schema" sources 2>/dev/null || echo "[]")"
+  updated="[('ibus', '$engine_name')]"
 
-  if [[ "$sources" != *"('ibus', '$engine_name')"* ]]; then
-    if [[ "$sources" == "[]" ]]; then
-      sources="[('ibus', '$engine_name')]"
-    else
-      sources="${sources%]}, ('ibus', '$engine_name')]"
-    fi
-    gsettings set "$schema" sources "$sources" || return 0
+  if [[ "$sources" != "$updated" ]]; then
+    gsettings set "$schema" sources "$updated" || return 0
   fi
 
-  local index=0
-  local part normalized
-  normalized="${sources#[}"
-  normalized="${normalized%]}"
-  IFS=$'\n' read -rd '' -a parts < <(printf '%s\n' "$normalized" | sed "s/), (/)\n(/g") || true
-  for part in "${parts[@]}"; do
-    if [[ "$part" == *"$engine_name"* ]]; then
-      gsettings set "$schema" current "$index" || return 0
-      break
-    fi
-    index=$((index + 1))
-  done
+  gsettings set "$schema" current 0 || return 0
 
   gsettings set org.gnome.desktop.wm.keybindings switch-input-source "['Caps_Lock']" || return 0
   gsettings set org.gnome.desktop.wm.keybindings switch-input-source-backward "[]" || return 0
