@@ -1,10 +1,14 @@
 use std::env;
+use std::fs;
 use std::process::{Command, ExitCode};
 
 use korean_core::{HangulComposer, InputResult};
 
 const SMOOTH_KEYBOARD_DELAY_MS: &str = "250";
 const SMOOTH_KEYBOARD_REPEAT_INTERVAL_MS: &str = "20";
+const APT_PACKAGES_URL: &str =
+    "https://codevilot.github.io/korean/dists/stable/main/binary-amd64/Packages";
+const APT_REPO_BASE_URL: &str = "https://codevilot.github.io/korean/";
 
 fn main() -> ExitCode {
     let mut args = env::args().skip(1);
@@ -15,6 +19,7 @@ fn main() -> ExitCode {
         Some("status") => status(),
         Some("doctor") => doctor(),
         Some("speed") => speed(args.collect()),
+        Some("update") => update(),
         Some("simulate") => {
             let input = args.next().unwrap_or_default();
             simulate(&input)
@@ -36,6 +41,7 @@ fn print_usage() {
   korean status
   korean doctor
   korean speed [delay-ms repeat-interval-ms]
+  korean update
   korean simulate <keys>
   korean reset"
     );
@@ -418,6 +424,69 @@ fn reset() -> ExitCode {
     ExitCode::SUCCESS
 }
 
+fn update() -> ExitCode {
+    if !command_exists("curl") {
+        eprintln!("curl command not found. Install curl and try again.");
+        return ExitCode::from(1);
+    }
+    if !command_exists("sudo") {
+        eprintln!("sudo command not found. Install sudo or install the .deb manually.");
+        return ExitCode::from(1);
+    }
+
+    let packages = match Command::new("curl")
+        .args(["-fsSL", APT_PACKAGES_URL])
+        .output()
+    {
+        Ok(out) if out.status.success() => String::from_utf8_lossy(&out.stdout).to_string(),
+        Ok(out) => {
+            eprintln!(
+                "Could not fetch package metadata: {}",
+                String::from_utf8_lossy(&out.stderr).trim()
+            );
+            return ExitCode::from(1);
+        }
+        Err(err) => {
+            eprintln!("Could not run curl: {err}");
+            return ExitCode::from(1);
+        }
+    };
+
+    let Some(package) = parse_latest_package(&packages) else {
+        eprintln!("Could not find the korean package in repository metadata.");
+        return ExitCode::from(1);
+    };
+
+    let deb_url = format!("{}{}", APT_REPO_BASE_URL, package.filename);
+    let deb_path = std::env::temp_dir().join(format!("korean_{}_amd64.deb", package.version));
+    let deb_path_str = deb_path.to_string_lossy().to_string();
+
+    println!("Downloading korean {}...", package.version);
+    let curl_status = Command::new("curl")
+        .args(["-fL", "-o", &deb_path_str, &deb_url])
+        .status();
+    if !curl_status.map(|status| status.success()).unwrap_or(false) {
+        eprintln!("Could not download {deb_url}");
+        return ExitCode::from(1);
+    }
+
+    println!("Installing korean {}...", package.version);
+    let install_status = Command::new("sudo")
+        .args(["apt", "install", "-y", &deb_path_str])
+        .status();
+    let _ = fs::remove_file(&deb_path);
+    if !install_status
+        .map(|status| status.success())
+        .unwrap_or(false)
+    {
+        eprintln!("Could not install downloaded package.");
+        return ExitCode::from(1);
+    }
+
+    println!("Starting Korean input method...");
+    start(vec!["--quiet".to_string()])
+}
+
 fn command_exists(name: &str) -> bool {
     Command::new("sh")
         .arg("-c")
@@ -425,6 +494,43 @@ fn command_exists(name: &str) -> bool {
         .status()
         .map(|status| status.success())
         .unwrap_or(false)
+}
+
+#[derive(Debug, Eq, PartialEq)]
+struct RepoPackage {
+    version: String,
+    filename: String,
+}
+
+fn parse_latest_package(packages: &str) -> Option<RepoPackage> {
+    let mut package_name = None;
+    let mut version = None;
+    let mut filename = None;
+
+    for line in packages.lines().chain(std::iter::once("")) {
+        if line.trim().is_empty() {
+            if package_name.as_deref() == Some("korean") {
+                return Some(RepoPackage {
+                    version: version?,
+                    filename: filename?,
+                });
+            }
+            package_name = None;
+            version = None;
+            filename = None;
+            continue;
+        }
+
+        if let Some(value) = line.strip_prefix("Package: ") {
+            package_name = Some(value.trim().to_string());
+        } else if let Some(value) = line.strip_prefix("Version: ") {
+            version = Some(value.trim().to_string());
+        } else if let Some(value) = line.strip_prefix("Filename: ") {
+            filename = Some(value.trim().to_string());
+        }
+    }
+
+    None
 }
 
 fn engine_name() -> String {
@@ -616,9 +722,9 @@ fn source_items(current: &str) -> Vec<String> {
 #[cfg(test)]
 mod tests {
     use super::{
-        append_ibus_source, display_gsettings_uint, parse_setup_options, parse_speed_args,
-        remove_ibus_source, source_index, RepeatSettings, SMOOTH_KEYBOARD_DELAY_MS,
-        SMOOTH_KEYBOARD_REPEAT_INTERVAL_MS,
+        append_ibus_source, display_gsettings_uint, parse_latest_package, parse_setup_options,
+        parse_speed_args, remove_ibus_source, source_index, RepeatSettings, RepoPackage,
+        SMOOTH_KEYBOARD_DELAY_MS, SMOOTH_KEYBOARD_REPEAT_INTERVAL_MS,
     };
 
     #[test]
@@ -720,6 +826,26 @@ mod tests {
     fn formats_gsettings_uint_values() {
         assert_eq!(display_gsettings_uint("uint32 500"), "500");
         assert_eq!(display_gsettings_uint("30"), "30");
+    }
+
+    #[test]
+    fn parses_latest_repo_package() {
+        let packages = "\
+Package: other
+Version: 1.0.0
+Filename: pool/main/o/other/other_1.0.0_amd64.deb
+
+Package: korean
+Version: 0.1.11
+Filename: pool/main/k/korean/korean_0.1.11_amd64.deb
+";
+        assert_eq!(
+            parse_latest_package(packages),
+            Some(RepoPackage {
+                version: "0.1.11".to_string(),
+                filename: "pool/main/k/korean/korean_0.1.11_amd64.deb".to_string(),
+            })
+        );
     }
 
     #[test]

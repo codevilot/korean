@@ -3,8 +3,8 @@
 If you do not want to add this repository as an APT source or run `sudo apt update`, download the GitHub Pages `.deb` directly and install that local file:
 
 ```bash
-curl -fL -o korean_0.1.10_amd64.deb https://codevilot.github.io/korean/pool/main/k/korean/korean_0.1.10_amd64.deb
-sudo apt install ./korean_0.1.10_amd64.deb
+curl -fL -o korean_0.1.11_amd64.deb https://codevilot.github.io/korean/pool/main/k/korean/korean_0.1.11_amd64.deb
+sudo apt install ./korean_0.1.11_amd64.deb
 korean start
 ```
 
@@ -69,8 +69,15 @@ korean stop
 korean status
 korean doctor
 korean speed 250 20
+korean update
 korean simulate gksrmf
 korean reset
+```
+
+To update from the GitHub Pages package repository without manually copying the latest version number:
+
+```bash
+korean update
 ```
 
 Keyboard repeat can be tuned at any time:
