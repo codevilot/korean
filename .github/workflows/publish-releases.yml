@@ -1,0 +1,69 @@
+name: Publish Releases
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Publish releases for all version tags
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          mapfile -t tags < <(git tag --list 'v*' --sort=version:refname)
+          if [[ "${#tags[@]}" -eq 0 ]]; then
+            echo "No version tags found."
+            exit 0
+          fi
+
+          prev=""
+          for tag in "${tags[@]}"; do
+            body="$(mktemp)"
+            json="$(mktemp)"
+
+            {
+              echo "## Changes"
+              echo
+              if [[ -z "$prev" ]]; then
+                git log --reverse --format='- %s (%h)' "$tag"
+              else
+                git log --reverse --format='- %s (%h)' "$prev..$tag"
+              fi
+            } > "$body"
+
+            jq -n \
+              --arg tag "$tag" \
+              --arg name "$tag" \
+              --rawfile body "$body" \
+              '{
+                tag_name: $tag,
+                name: $name,
+                body: $body,
+                draft: false,
+                prerelease: false,
+                make_latest: "legacy"
+              }' > "$json"
+
+            if id="$(gh api "repos/$REPO/releases/tags/$tag" --jq '.id' 2>/dev/null)"; then
+              gh api -X PATCH "repos/$REPO/releases/$id" --input "$json" >/dev/null
+              echo "Updated release $tag"
+            else
+              gh api -X POST "repos/$REPO/releases" --input "$json" >/dev/null
+              echo "Created release $tag"
+            fi
+
+            rm -f "$body" "$json"
+            prev="$tag"
+          done
