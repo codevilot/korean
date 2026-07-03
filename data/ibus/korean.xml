@@ -3,7 +3,7 @@
   <name>org.freedesktop.IBus.Korean</name>
   <description>Korean Input Method</description>
   <exec>/usr/lib/korean/korean-ibus</exec>
-  <version>0.1.8</version>
+  <version>0.1.9</version>
   <author>BK</author>
   <license>MIT</license>
   <textdomain>korean</textdomain>

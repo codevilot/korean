@@ -3,8 +3,8 @@
 If you do not want to add this repository as an APT source or run `sudo apt update`, download the GitHub Pages `.deb` directly and install that local file:
 
 ```bash
-curl -fL -o korean_0.1.8_amd64.deb https://codevilot.github.io/korean/pool/main/k/korean/korean_0.1.8_amd64.deb
-sudo apt install ./korean_0.1.8_amd64.deb
+curl -fL -o korean_0.1.9_amd64.deb https://codevilot.github.io/korean/pool/main/k/korean/korean_0.1.9_amd64.deb
+sudo apt install ./korean_0.1.9_amd64.deb
 korean start
 ```
 
@@ -68,7 +68,7 @@ korean start
 korean stop
 korean status
 korean doctor
-korean speed 180 15
+korean speed 250 20
 korean simulate gksrmf
 korean reset
 ```
@@ -76,10 +76,11 @@ korean reset
 Keyboard repeat can be tuned at any time:
 
 ```bash
-korean speed 180 15
+korean speed
+korean speed 250 20
 ```
 
-The first value is the repeat delay in milliseconds, and the second value is the repeat interval in milliseconds. Larger values feel slower. The setup command accepts the same tuning:
+Without arguments, `korean speed` prints the current repeat settings. The first value is the repeat delay in milliseconds, and the second value is the repeat interval in milliseconds. Larger values feel slower. The setup command accepts the same tuning:
 
 ```bash
 korean setup --repeat-delay-ms 220 --repeat-interval-ms 20
@@ -109,7 +110,7 @@ sudo apt install -y build-essential cargo rustc pkg-config libibus-1.0-dev libgl
 During development, tune key repeat with:
 
 ```bash
-KOREAN_DEV_REPEAT_DELAY_MS=180 KOREAN_DEV_REPEAT_INTERVAL_MS=15 ./scripts/dev-apply.sh
+KOREAN_DEV_REPEAT_DELAY_MS=250 KOREAN_DEV_REPEAT_INTERVAL_MS=20 ./scripts/dev-apply.sh
 ```
 
 For a rebuild/restart loop:

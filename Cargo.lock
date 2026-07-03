@@ -4,25 +4,25 @@ version = 4
 
 [[package]]
 name = "korean-capsd"
-version = "0.1.8"
+version = "0.1.9"
 dependencies = [
  "korean-state",
 ]
 
 [[package]]
 name = "korean-cli"
-version = "0.1.8"
+version = "0.1.9"
 dependencies = [
  "korean-core",
 ]
 
 [[package]]
 name = "korean-core"
-version = "0.1.8"
+version = "0.1.9"
 
 [[package]]
 name = "korean-ibus"
-version = "0.1.8"
+version = "0.1.9"
 dependencies = [
  "korean-core",
  "korean-state",
@@ -30,4 +30,4 @@ dependencies = [
 
 [[package]]
 name = "korean-state"
-version = "0.1.8"
+version = "0.1.9"

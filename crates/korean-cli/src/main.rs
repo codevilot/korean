@@ -3,8 +3,8 @@ use std::process::{Command, ExitCode};
 
 use korean_core::{HangulComposer, InputResult};
 
-const SMOOTH_KEYBOARD_DELAY_MS: &str = "180";
-const SMOOTH_KEYBOARD_REPEAT_INTERVAL_MS: &str = "15";
+const SMOOTH_KEYBOARD_DELAY_MS: &str = "250";
+const SMOOTH_KEYBOARD_REPEAT_INTERVAL_MS: &str = "20";
 
 fn main() -> ExitCode {
     let mut args = env::args().skip(1);
@@ -237,6 +237,34 @@ fn parse_setup_options(args: Vec<String>) -> Result<SetupOptions, String> {
 }
 
 fn speed(args: Vec<String>) -> ExitCode {
+    if args.is_empty() {
+        if !command_exists("gsettings") {
+            eprintln!("gsettings not found. Adjust keyboard repeat in GNOME Settings.");
+            return ExitCode::from(1);
+        }
+
+        let delay = gsettings("get", "org.gnome.desktop.peripherals.keyboard", "delay");
+        let interval = gsettings(
+            "get",
+            "org.gnome.desktop.peripherals.keyboard",
+            "repeat-interval",
+        );
+        match (delay, interval) {
+            (Some(delay), Some(interval)) => {
+                println!(
+                    "Keyboard repeat: delay={}ms interval={}ms.",
+                    display_gsettings_uint(&delay),
+                    display_gsettings_uint(&interval)
+                );
+                return ExitCode::SUCCESS;
+            }
+            _ => {
+                eprintln!("Could not read keyboard repeat settings automatically.");
+                return ExitCode::from(1);
+            }
+        }
+    }
+
     let settings = match parse_speed_args(args) {
         Ok(settings) => settings,
         Err(message) => {
@@ -265,7 +293,6 @@ fn speed(args: Vec<String>) -> ExitCode {
 
 fn parse_speed_args(args: Vec<String>) -> Result<RepeatSettings, String> {
     match args.as_slice() {
-        [] => Ok(RepeatSettings::default()),
         [delay, interval] => Ok(RepeatSettings {
             delay_ms: parse_repeat_value("delay-ms", delay)?,
             interval_ms: parse_repeat_value("repeat-interval-ms", interval)?,
@@ -282,6 +309,10 @@ fn parse_repeat_value(name: &str, value: &str) -> Result<u32, String> {
         return Err(format!("{name} must be greater than 0"));
     }
     Ok(parsed)
+}
+
+fn display_gsettings_uint(value: &str) -> &str {
+    value.strip_prefix("uint32 ").unwrap_or(value).trim()
 }
 
 fn status() -> ExitCode {
@@ -585,8 +616,9 @@ fn source_items(current: &str) -> Vec<String> {
 #[cfg(test)]
 mod tests {
     use super::{
-        append_ibus_source, parse_setup_options, parse_speed_args, remove_ibus_source,
-        source_index, RepeatSettings, SMOOTH_KEYBOARD_DELAY_MS, SMOOTH_KEYBOARD_REPEAT_INTERVAL_MS,
+        append_ibus_source, display_gsettings_uint, parse_setup_options, parse_speed_args,
+        remove_ibus_source, source_index, RepeatSettings, SMOOTH_KEYBOARD_DELAY_MS,
+        SMOOTH_KEYBOARD_REPEAT_INTERVAL_MS,
     };
 
     #[test]
@@ -671,7 +703,6 @@ mod tests {
 
     #[test]
     fn parses_speed_command_values() {
-        assert_eq!(parse_speed_args(vec![]).unwrap(), RepeatSettings::default());
         assert_eq!(
             parse_speed_args(vec!["250".into(), "25".into()]).unwrap(),
             RepeatSettings {
@@ -679,9 +710,16 @@ mod tests {
                 interval_ms: 25
             }
         );
+        assert!(parse_speed_args(vec![]).is_err());
         assert!(parse_speed_args(vec!["250".into()]).is_err());
         assert!(parse_speed_args(vec!["0".into(), "25".into()]).is_err());
         assert!(parse_speed_args(vec!["fast".into(), "25".into()]).is_err());
+    }
+
+    #[test]
+    fn formats_gsettings_uint_values() {
+        assert_eq!(display_gsettings_uint("uint32 500"), "500");
+        assert_eq!(display_gsettings_uint("30"), "30");
     }
 
     #[test]
@@ -690,10 +728,10 @@ mod tests {
     }
 
     #[test]
-    fn smooth_keyboard_repeat_values_are_fast() {
+    fn smooth_keyboard_repeat_values_are_reasonable() {
         let delay: u32 = SMOOTH_KEYBOARD_DELAY_MS.parse().unwrap();
         let interval: u32 = SMOOTH_KEYBOARD_REPEAT_INTERVAL_MS.parse().unwrap();
-        assert!(delay <= 200);
+        assert!(delay <= 300);
         assert!(interval <= 20);
     }
 }

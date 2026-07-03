@@ -16,8 +16,8 @@ ibus_wrapper="$repo_dir/target/debug/korean-ibus-dev"
 debug_log="/tmp/korean-ibus.log"
 render_mode="${KOREAN_DEV_RENDER_MODE:-delayed_preview}"
 delete_mode="${KOREAN_DEV_DELETE_MODE:-surrounding}"
-repeat_delay_ms="${KOREAN_DEV_REPEAT_DELAY_MS:-180}"
-repeat_interval_ms="${KOREAN_DEV_REPEAT_INTERVAL_MS:-15}"
+repeat_delay_ms="${KOREAN_DEV_REPEAT_DELAY_MS:-250}"
+repeat_interval_ms="${KOREAN_DEV_REPEAT_INTERVAL_MS:-20}"
 tmp_component="$(mktemp)"
 trap 'rm -f "$tmp_component"' EXIT
 
@@ -166,7 +166,7 @@ To disable preedit preview while keeping delayed commits:
   KOREAN_DEV_RENDER_MODE=delayed ./scripts/dev-apply.sh
 
 To tune Backspace/key-repeat speed:
-  KOREAN_DEV_REPEAT_DELAY_MS=180 KOREAN_DEV_REPEAT_INTERVAL_MS=15 ./scripts/dev-apply.sh
+  KOREAN_DEV_REPEAT_DELAY_MS=250 KOREAN_DEV_REPEAT_INTERVAL_MS=20 ./scripts/dev-apply.sh
 
 To test the previous preedit path:
   KOREAN_DEV_RENDER_MODE=preedit ./scripts/dev-apply.sh
