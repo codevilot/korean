@@ -66,7 +66,10 @@ tune_keyboard_repeat() {
 cargo build -p korean-cli -p korean-ibus
 
 mkdir -p "$component_dir" "$bin_dir"
-ln -sf "$cli_bin" "$bin_dir/korean"
+ln -sf "$cli_bin" "$bin_dir/korean-dev"
+if [[ -L "$bin_dir/korean" && "$(readlink -f "$bin_dir/korean")" == "$cli_bin" ]]; then
+  rm -f "$bin_dir/korean"
+fi
 : >"$debug_log"
 cat >"$ibus_wrapper" <<WRAPPER
 #!/usr/bin/env bash
@@ -172,13 +175,11 @@ To test the previous preedit path:
   KOREAN_DEV_RENDER_MODE=preedit ./scripts/dev-apply.sh
 MSG
 
-if [[ "$(command -v korean 2>/dev/null || true)" != "$bin_dir/korean" ]]; then
-  cat <<MSG
-
-Note: your shell resolves korean to:
-  $(command -v korean 2>/dev/null || echo "not found")
+cat <<MSG
 
 For the dev CLI in this shell, run:
-  $cli_bin status
+  korean-dev status
+
+The packaged CLI remains:
+  /usr/bin/korean status
 MSG
-fi

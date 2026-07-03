@@ -46,6 +46,21 @@ set -e
 if command -v ibus >/dev/null 2>&1; then
   ibus write-cache >/dev/null 2>&1 || true
 fi
+for home in /home/*; do
+  shadow="$home/.local/bin/korean"
+  if [[ -L "$shadow" && "$(readlink -f "$shadow" 2>/dev/null || true)" == */target/debug/korean ]]; then
+    backup="$home/.local/bin/korean.dev-link"
+    if [[ -e "$backup" || -L "$backup" ]]; then
+      backup="$home/.local/bin/korean.dev-link.$(date +%s)"
+    fi
+    mv "$shadow" "$backup"
+    cat >&2 <<MSG
+korean: moved development CLI link out of the way:
+korean:   $shadow -> $backup
+korean: /usr/bin/korean will be used by new shells.
+MSG
+  fi
+done
 exit 0
 POSTINST
 
