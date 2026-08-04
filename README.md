@@ -1,10 +1,12 @@
-# Quick install without adding an APT source
+# Quick Install Without Adding an APT Source
 
-If you do not want to add this repository as an APT source or run `sudo apt update`, download the GitHub Pages `.deb` directly and install that local file:
+If you do not want to add this repository as an APT source, install the latest
+`.deb` currently published in the GitHub Pages APT repository:
 
 ```bash
-curl -fL -o korean_0.1.11_amd64.deb https://codevilot.github.io/korean/pool/main/k/korean/korean_0.1.11_amd64.deb
-sudo apt install ./korean_0.1.11_amd64.deb
+deb_path="$(curl -fsSL https://codevilot.github.io/korean/dists/stable/main/binary-amd64/Packages | awk '/^Package: korean$/{found=1} found && /^Filename: /{print $2; exit}')"
+curl -fL -o /tmp/korean_amd64.deb "https://codevilot.github.io/korean/${deb_path}"
+sudo apt install /tmp/korean_amd64.deb
 korean start
 ```
 
@@ -46,7 +48,7 @@ Build and install locally on Ubuntu/Debian:
 sudo apt update
 sudo apt install -y build-essential cargo rustc pkg-config libibus-1.0-dev libglib2.0-dev libevdev-dev libudev-dev dpkg-dev apt-utils
 ./scripts/package-deb.sh
-sudo apt install ./dist/korean_0.1.2_amd64.deb
+sudo apt install ./dist/korean_*_amd64.deb
 korean start
 ```
 
